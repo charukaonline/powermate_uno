@@ -60,5 +60,5 @@ void loop() {
     espSerial.print(",");
     espSerial.println(batteryCurrent);
 
-    delay(500);
+    delay(5000);
 }
