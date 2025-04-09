@@ -1,27 +1,47 @@
 #include <Arduino.h>
 
-const int voltagePin = A0;  // Voltage sensor output to A0
-const int currentPin = A1;  // ACS712 output to A1
+// DC measurement pins
+const int dcVoltagePin = A0;  // DC Voltage sensor output
+const int dcCurrentPin = A1;  // DC ACS712 output
+
+// Battery measurement pins
+const int batteryVoltagePin = A2;  // Battery Voltage sensor output
+const int batteryCurrentPin = A3;  // Battery ACS712 output
 
 void setup() {
-    Serial.begin(9600); // Serial1 for communication with ESP32
+    Serial.begin(9600); // Serial communication
 }
 
 void loop() {
-    // Read Voltage Sensor (0-25V module)
-    int rawVoltage = analogRead(voltagePin);
-    float voltage = (rawVoltage / 1023.0) * 25.0;  // Convert to actual voltage
+    // Read DC Voltage Sensor (0-25V module)
+    int rawDcVoltage = analogRead(dcVoltagePin);
+    float dcVoltage = (rawDcVoltage / 1023.0) * 25.0;  // Convert to actual voltage
 
-    // Read ACS712 Current Sensor
-    int rawCurrent = analogRead(currentPin);
-    float offset = 512;  // Adjust this if needed (midpoint of 0-1023)
-    float sensitivity = 0.185; // For ACS712-5A (adjust for 20A or 30A models)
-    float current = ((rawCurrent - offset) * 5.0) / 1023.0 / sensitivity;  // Convert to Amps
+    // Read DC ACS712 Current Sensor
+    int rawDcCurrent = analogRead(dcCurrentPin);
+    float dcOffset = 512;  // Adjust this if needed (midpoint of 0-1023)
+    float dcSensitivity = 0.100; // For ACS712-5A (adjust for 20A or 30A models)
+    float dcCurrent = ((rawDcCurrent - dcOffset) * 5.0) / 1023.0 / dcSensitivity;  // Convert to Amps
 
-    // Send voltage & current values to ESP32
-    Serial.print(voltage);
+    // Read Battery Voltage Sensor (0-25V module)
+    int rawBatteryVoltage = analogRead(batteryVoltagePin);
+    float batteryVoltage = (rawBatteryVoltage / 1023.0) * 25.0;  // Convert to actual voltage
+
+    // Read Battery ACS712 Current Sensor
+    int rawBatteryCurrent = analogRead(batteryCurrentPin);
+    float batteryOffset = 512;  // Adjust this if needed (midpoint of 0-1023)
+    float batterySensitivity = 0.100; // For ACS712-5A (adjust for 20A or 30A models)
+    float batteryCurrent = ((rawBatteryCurrent - batteryOffset) * 5.0) / 1023.0 / batterySensitivity;  // Convert to Amps
+
+    // Send all values to Serial
+    Serial.print("DC: ");
+    Serial.print(dcVoltage);
     Serial.print(" V, ");
-    Serial.print(current);
+    Serial.print(dcCurrent);
+    Serial.print(" A | Battery: ");
+    Serial.print(batteryVoltage);
+    Serial.print(" V, ");
+    Serial.print(batteryCurrent);
     Serial.println(" A");
 
     delay(500);
