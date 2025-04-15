@@ -10,8 +10,8 @@ const int batteryVoltagePin = A2;  // Battery Voltage sensor output
 const int batteryCurrentPin = A3;  // Battery ACS712 output
 
 // Define software serial pins for ESP32 communication
-#define ESP_RX 10  // Connect to ESP32 TX
-#define ESP_TX 11  // Connect to ESP32 RX
+#define ESP_RX 0  // Connect to ESP32 TX
+#define ESP_TX 1  // Connect to ESP32 RX
 SoftwareSerial espSerial(ESP_RX, ESP_TX);
 
 void setup() {
