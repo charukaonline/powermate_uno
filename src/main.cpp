@@ -1,51 +1,64 @@
-// ACS712 Current Sensor (5A, 20A, or 30A) with Arduino Uno
-
 #include <Arduino.h>
+#include <SoftwareSerial.h>
 
-const int currentSensorPin = A0; // ACS712 sensor output to Arduino A0
-const float VCC = 5.0; // Arduino operating voltage (5V)
-const int ADCresolution = 1023; // 10-bit ADC resolution
+// DC measurement pins
+const int dcVoltagePin = A0;  // DC Voltage sensor output
+const int dcCurrentPin = A1;  // DC ACS712 output
 
-// Adjust these values based on your specific ACS712 model:
-// 5A model: 0.185 V/A
-// 20A model: 0.100 V/A
-// 30A model: 0.066 V/A
-const float ACS712_Sensitivity = 0.100; // Sensitivity in V/A
+// Battery measurement pins
+const int batteryVoltagePin = A2;  // Battery Voltage sensor output
+const int batteryCurrentPin = A3;  // Battery ACS712 output
 
-// Zero current calibration value (needs to be measured)
-float offsetVoltage = 2.5; // This is theoretical, should be calibrated
+// Define software serial pins for ESP32 communication
+#define ESP_RX 0  // Connect to ESP32 TX
+#define ESP_TX 1  // Connect to ESP32 RX
+SoftwareSerial espSerial(ESP_RX, ESP_TX);
 
 void setup() {
-    Serial.begin(9600);
-    
-    // Calibration routine to find the actual zero-current offset voltage
-    long sum = 0;
-    for(int i = 0; i < 500; i++) {
-        sum += analogRead(currentSensorPin);
-        delay(1);
-    }
-    offsetVoltage = (sum / 500.0) * VCC / ADCresolution;
-    
-    Serial.print("Calibrated offset voltage: ");
-    Serial.print(offsetVoltage, 3);
-    Serial.println(" V");
+    Serial.begin(9600);    // Serial communication for debugging
+    espSerial.begin(9600); // Serial communication with ESP32
 }
 
 void loop() {
-    int rawADC = analogRead(currentSensorPin); // Read ADC value
-    float voltage = (rawADC * VCC) / ADCresolution; // Convert ADC value to voltage
-    
-    // Calculate actual current (in Amperes)
-    float current = (voltage - offsetVoltage) / ACS712_Sensitivity;
+    // Read DC Voltage Sensor (0-25V module)
+    int rawDcVoltage = analogRead(dcVoltagePin);
+    float dcVoltage = (rawDcVoltage / 1023.0) * 25.0;  // Convert to actual voltage
 
-    // Display results in Serial Monitor
-    Serial.print("Raw ADC: ");
-    Serial.print(rawADC);
-    Serial.print(" | Voltage: ");
-    Serial.print(voltage, 3);
-    Serial.print(" V | Current: ");
-    Serial.print(current, 3); // 3 decimal places
+    // Read DC ACS712 Current Sensor
+    int rawDcCurrent = analogRead(dcCurrentPin);
+    float dcOffset = 512;  // Adjust this if needed (midpoint of 0-1023)
+    float dcSensitivity = 0.100; // For ACS712-5A (adjust for 20A or 30A models)
+    float dcCurrent = ((rawDcCurrent - dcOffset) * 5.0) / 1023.0 / dcSensitivity;  // Convert to Amps
+
+    // Read Battery Voltage Sensor (0-25V module)
+    int rawBatteryVoltage = analogRead(batteryVoltagePin);
+    float batteryVoltage = (rawBatteryVoltage / 1023.0) * 25.0;  // Convert to actual voltage
+
+    // Read Battery ACS712 Current Sensor
+    int rawBatteryCurrent = analogRead(batteryCurrentPin);
+    float batteryOffset = 512;  // Adjust this if needed (midpoint of 0-1023)
+    float batterySensitivity = 0.100; // For ACS712-5A (adjust for 20A or 30A models)
+    float batteryCurrent = ((rawBatteryCurrent - batteryOffset) * 5.0) / 1023.0 / batterySensitivity;  // Convert to Amps
+
+    // Send to Serial Monitor (for debugging)
+    Serial.print("DC: ");
+    Serial.print(dcVoltage);
+    Serial.print(" V, ");
+    Serial.print(dcCurrent);
+    Serial.print(" A | Battery: ");
+    Serial.print(batteryVoltage);
+    Serial.print(" V, ");
+    Serial.print(batteryCurrent);
     Serial.println(" A");
 
-    delay(1000); // Update every second
+    // Send to ESP32 in an easily parsable format (CSV style)
+    espSerial.print(dcVoltage);
+    espSerial.print(",");
+    espSerial.print(dcCurrent);
+    espSerial.print(",");
+    espSerial.print(batteryVoltage);
+    espSerial.print(",");
+    espSerial.println(batteryCurrent);
+
+    delay(5000);
 }
