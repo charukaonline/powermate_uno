@@ -14,51 +14,97 @@ const int batteryCurrentPin = A3;  // Battery ACS712 output
 #define ESP_TX 1  // Connect to ESP32 RX
 SoftwareSerial espSerial(ESP_RX, ESP_TX);
 
+// Timing variables
+unsigned long previousMillis = 0;
+const unsigned long outputInterval = 1000;  // Output interval in milliseconds (1 second)
+
+// Variables for storing real-time measurements
+float currentDcVoltage = 0;
+float currentDcCurrent = 0;
+float currentBatteryVoltage = 0;
+float currentBatteryCurrent = 0;
+
+// Variables for averaging
+const int numReadings = 10;
+int readingCount = 0;
+float totalDcVoltage = 0;
+float totalDcCurrent = 0;
+float totalBatteryVoltage = 0;
+float totalBatteryCurrent = 0;
+
 void setup() {
     Serial.begin(9600);    // Serial communication for debugging
     espSerial.begin(9600); // Serial communication with ESP32
 }
 
 void loop() {
+    // Take readings on every loop iteration for real-time data
+    
     // Read DC Voltage Sensor (0-25V module)
     int rawDcVoltage = analogRead(dcVoltagePin);
-    float dcVoltage = (rawDcVoltage / 1023.0) * 25.0;  // Convert to actual voltage
+    currentDcVoltage = (rawDcVoltage / 1023.0) * 25.0;
+    totalDcVoltage += currentDcVoltage;
 
     // Read DC ACS712 Current Sensor
     int rawDcCurrent = analogRead(dcCurrentPin);
-    float dcOffset = 512;  // Adjust this if needed (midpoint of 0-1023)
-    float dcSensitivity = 0.100; // For ACS712-5A (adjust for 20A or 30A models)
-    float dcCurrent = ((rawDcCurrent - dcOffset) * 5.0) / 1023.0 / dcSensitivity;  // Convert to Amps
+    float dcOffset = 512;
+    float dcSensitivity = 0.100;
+    currentDcCurrent = ((rawDcCurrent - dcOffset) * 5.0) / 1023.0 / dcSensitivity;
+    totalDcCurrent += currentDcCurrent;
 
     // Read Battery Voltage Sensor (0-25V module)
     int rawBatteryVoltage = analogRead(batteryVoltagePin);
-    float batteryVoltage = (rawBatteryVoltage / 1023.0) * 25.0;  // Convert to actual voltage
+    currentBatteryVoltage = (rawBatteryVoltage / 1023.0) * 25.0;
+    totalBatteryVoltage += currentBatteryVoltage;
 
     // Read Battery ACS712 Current Sensor
     int rawBatteryCurrent = analogRead(batteryCurrentPin);
-    float batteryOffset = 512;  // Adjust this if needed (midpoint of 0-1023)
-    float batterySensitivity = 0.100; // For ACS712-5A (adjust for 20A or 30A models)
-    float batteryCurrent = ((rawBatteryCurrent - batteryOffset) * 5.0) / 1023.0 / batterySensitivity;  // Convert to Amps
+    float batteryOffset = 512;
+    float batterySensitivity = 0.100;
+    currentBatteryCurrent = ((rawBatteryCurrent - batteryOffset) * 5.0) / 1023.0 / batterySensitivity;
+    totalBatteryCurrent += currentBatteryCurrent;
 
-    // Send to Serial Monitor (for debugging)
-    Serial.print("DC: ");
-    Serial.print(dcVoltage);
-    Serial.print(" V, ");
-    Serial.print(dcCurrent);
-    Serial.print(" A | Battery: ");
-    Serial.print(batteryVoltage);
-    Serial.print(" V, ");
-    Serial.print(batteryCurrent);
-    Serial.println(" A");
+    readingCount++;
 
-    // Send to ESP32 in an easily parsable format (CSV style)
-    espSerial.print(dcVoltage);
-    espSerial.print(",");
-    espSerial.print(dcCurrent);
-    espSerial.print(",");
-    espSerial.print(batteryVoltage);
-    espSerial.print(",");
-    espSerial.println(batteryCurrent);
+    // Output at regular intervals without blocking the measurements
+    unsigned long currentMillis = millis();
+    if (currentMillis - previousMillis >= outputInterval) {
+        // Save the current time
+        previousMillis = currentMillis;
+        
+        // Calculate averages
+        float avgDcVoltage = totalDcVoltage / readingCount;
+        float avgDcCurrent = totalDcCurrent / readingCount;
+        float avgBatteryVoltage = totalBatteryVoltage / readingCount;
+        float avgBatteryCurrent = totalBatteryCurrent / readingCount;
+        
+        // Send to Serial Monitor (for debugging)
+        Serial.print("DC: ");
+        Serial.print(avgDcVoltage);
+        Serial.print(" V, ");
+        Serial.print(avgDcCurrent);
+        Serial.print(" A | Battery: ");
+        Serial.print(avgBatteryVoltage);
+        Serial.print(" V, ");
+        Serial.print(avgBatteryCurrent);
+        Serial.println(" A");
 
-    delay(5000);
+        // Send to ESP32 in an easily parsable format (CSV style)
+        espSerial.print(avgDcVoltage);
+        espSerial.print(",");
+        espSerial.print(avgDcCurrent);
+        espSerial.print(",");
+        espSerial.print(avgBatteryVoltage);
+        espSerial.print(",");
+        espSerial.println(avgBatteryCurrent);
+        
+        // Reset for next averaging period
+        totalDcVoltage = 0;
+        totalDcCurrent = 0;
+        totalBatteryVoltage = 0;
+        totalBatteryCurrent = 0;
+        readingCount = 0;
+    }
+    
+    // You can add other real-time operations here
 }
